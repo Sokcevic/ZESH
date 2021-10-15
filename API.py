@@ -1,4 +1,5 @@
 from flask import Flask
+from flask import request as postbody
 import json
 import requests
 import os
@@ -12,12 +13,12 @@ personId = ''
 personType = ''
 
 
-@app.route('/login', methods=['GET'])
+@app.route('/login', methods=['POST'])
 def login():
     postData = {}
     postData["id"] = "ID"
     postData["method"] = "authenticate"
-    postData["params"] = { "user":"SOK19045", "password":"LukasSokcevic2003"}
+    postData["params"] = postbody.json
     postData["jsonrpc"] = "2.0"
     r = requests.post(REQUEST_URL, data = json.dumps(postData)).json()
     global sessionId
