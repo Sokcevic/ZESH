@@ -3,10 +3,12 @@ from flask import request as postbody
 import json
 import requests
 import markdown
+import urllib.parse
 
 app = Flask(__name__)
 
-REQUEST_URL = 'https://neilo.webuntis.com/WebUntis/jsonrpc.do?school=Spengergasse'
+UNTIS_URL = 'https://neilo.webuntis.com/WebUntis/jsonrpc.do?school=Spengergasse'
+
 
 @app.route("/")
 def index():
@@ -25,7 +27,7 @@ def login():
     postData["params"] = postbody.json
     postData["jsonrpc"] = "2.0"
     print(postbody.json)
-    r = requests.post(REQUEST_URL, data = json.dumps(postData)).json()
+    r = requests.post(UNTIS_URL, data = json.dumps(postData)).json()
     if "error" in r:
         return {}
     return json.dumps(r['result'])
@@ -43,7 +45,7 @@ def getTable(p):
     postData["method"] = "getTimetable"
     postData["params"] = { "id":p.json['id'], "type":p.json['type']}
     postData["jsonrpc"] = "2.0"
-    return requests.post(REQUEST_URL, data = json.dumps(postData), cookies = {"JSESSIONID": p.json['JSESSIONID']}).json()
+    return requests.post(UNTIS_URL, data = json.dumps(postData), cookies = {"JSESSIONID": p.json['JSESSIONID']}).json()
 
 @app.route('/subjects', methods=['POST'])
 def getSubjectsRoute():
@@ -57,7 +59,32 @@ def getSubjects(p):
     postData["id"] = "ID"
     postData["method"] = "getSubjects"
     postData["jsonrpc"] = "2.0"
-    return requests.post(REQUEST_URL, data = json.dumps(postData), cookies = {"JSESSIONID": p.json['JSESSIONID']}).json()
+    return requests.post(UNTIS_URL, data = json.dumps(postData), cookies = {"JSESSIONID": p.json['JSESSIONID']}).json()
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------#
+
+def ScottyLogin():
+    return requests.get('https://tickets.oebb.at/api/domain/v3/init').json()['accessToken']
+
+@app.route('/station', methods=['POST'])
+def getStation():
+    return json.dumps(requests.get('https://tickets.oebb.at/api/hafas/v1/stations?' + urllib.parse.urlencode(postbody.json), headers={'AccessToken':ScottyLogin()}).json())
+
+@app.route('/route', methods=['POST'])
+def getRoute():
+    journey = json.loads(open('Journey.json', 'r').read())
+    for a,b in postbody.json.items():
+        journey[a] = b
+    # print(type(postbody.json['from']['number']))
+    # journey['from'] = postbody.json['from']
+    # journey['to'] = postbody.json['to']
+    return requests.post('https://tickets.oebb.at/api/hafas/v4/timetable', json=journey, headers={'AccessToken':ScottyLogin()}).json()
+    
+@app.route('/journey', methods=['GET'])
+def showJourney():
+    return json.loads(open('Journey.json', 'r').read())
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------#
 
 @app.route('/prepared/firstLesson', methods=['POST'])
 def getLesson():
@@ -86,4 +113,4 @@ def getprepedtable():
     return json.dumps(table)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',port=5000, threaded = True, debug=True)
+    app.run(host='0.0.0.0',port=5000, threaded = True)
