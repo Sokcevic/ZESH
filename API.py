@@ -1,3 +1,4 @@
+from collections import defaultdict
 from flask import Flask
 from flask import request as postbody
 import json
@@ -43,7 +44,15 @@ def getTable(p):
     postData = {}
     postData["id"] = "ID"
     postData["method"] = "getTimetable"
-    postData["params"] = { "id":p.json['id'], "type":p.json['type']}
+    uid = getUserID(p)
+    utyp = getUserType(p)
+    if uid is False or utyp is False:
+        return {'error':'Your JSESSIONID is probably expired'}
+    postData["params"] = { "id":uid, "type":utyp}
+    if "startDate" in p.json:
+        postData['params']["startDate"] = p.json['startDate']
+    if "endDate" in p.json:
+        postData['params']['endDate'] = p.json['endDate']
     postData["jsonrpc"] = "2.0"
     return requests.post(UNTIS_URL, data = json.dumps(postData), cookies = {"JSESSIONID": p.json['JSESSIONID']}).json()
 
@@ -51,7 +60,7 @@ def getTable(p):
 def getSubjectsRoute():
     r = getSubjects(postbody)
     if "error" in r:
-        return str(r['error'])
+        return {'error':r['error']}
     return json.dumps(r['result'])
 
 def getSubjects(p):
@@ -60,6 +69,27 @@ def getSubjects(p):
     postData["method"] = "getSubjects"
     postData["jsonrpc"] = "2.0"
     return requests.post(UNTIS_URL, data = json.dumps(postData), cookies = {"JSESSIONID": p.json['JSESSIONID']}).json()
+
+@app.route('/userData', methods=['POST'])
+def getStudentInfo():
+    return requests.get('https://neilo.webuntis.com/WebUntis/api/rest/view/v1/app/data', 
+    cookies={"JSESSIONID": postbody.json['JSESSIONID']}, headers={'Authorization': getBearerAuth(postbody)}).json()
+
+def getBearerAuth(p):
+    return 'Bearer ' + requests.get('https://neilo.webuntis.com/WebUntis/api/token/new', cookies = {"JSESSIONID": p.json['JSESSIONID']}).text
+
+def getUserID(p):
+    r = requests.get('https://neilo.webuntis.com/WebUntis/api/rest/view/v1/app/data', 
+    cookies={"JSESSIONID": p.json['JSESSIONID']}, headers={'Authorization': getBearerAuth(postbody)}).json()
+    if 'user' not in r:
+        return False
+    return r['user']['person']['id']
+
+def getUserType(p):
+    r = requests.get('https://neilo.webuntis.com/WebUntis/api/profile/general', cookies={"JSESSIONID": p.json['JSESSIONID']}, headers={'accept':'application/json'}).json()
+    if 'data' not in r:
+        return False
+    return r['data']['profile']['userRoleId']
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -75,9 +105,6 @@ def getRoute():
     journey = json.loads(open('Journey.json', 'r').read())
     for a,b in postbody.json.items():
         journey[a] = b
-    # print(type(postbody.json['from']['number']))
-    # journey['from'] = postbody.json['from']
-    # journey['to'] = postbody.json['to']
     return requests.post('https://tickets.oebb.at/api/hafas/v4/timetable', json=journey, headers={'AccessToken':ScottyLogin()}).json()
     
 @app.route('/journey', methods=['GET'])
@@ -89,8 +116,17 @@ def showJourney():
 @app.route('/prepared/firstLesson', methods=['POST'])
 def getLesson():
     table = getTable(postbody)
-    startTime = min(t['startTime'] for t in table['result'] )
-    return {'startTime': startTime}
+    
+    if "error" in table:
+        return table['error']
+    if len(table) == 0:
+        return {'error':'You probably don\'t have school that day!' }
+
+    erg = defaultdict(list)
+    for t in table['result']: erg[t['date']].append(t['startTime'])
+    for k, v in erg.items():
+        erg[k] = min(v)
+    return erg
 
 @app.route('/prepared/timetable', methods=['POST'])
 def getprepedtable():
@@ -113,4 +149,4 @@ def getprepedtable():
     return json.dumps(table)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',port=5000, threaded = True)
+    app.run(host='0.0.0.0',port=5000, threaded = True, debug=True)

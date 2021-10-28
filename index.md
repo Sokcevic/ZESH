@@ -12,7 +12,7 @@ Tries to login with the given credentials
 
 ### /table
 - Methods: POST
-- RequestBody: { "id":personId, "type":personType, "JSESSIONID":JSESSIONID}
+- RequestBody: { "startDate": "20201028", "endDate":"20201028", "JSESSIONID":JSESSIONID}
 - returns: timeTable
 
 ### /subjects
@@ -22,12 +22,12 @@ Tries to login with the given credentials
 
 ### /prepared/firstLesson
 - Methods: POST
-- RequestBody: { "id":personId, "type":personType, "JSESSIONID":JSESSIONID}
+- RequestBody: {"startDate": "20201028", "endDate":"20201028", "JSESSIONID":JSESSIONID}
 - returns: The time when the first lesson starts
 
-### /prepared/timeTable
+### /prepared/timetable
 - Methods: POST
-- RequestBody: { "id":personId, "type":personType, "JSESSIONID":JSESSIONID}
+- RequestBody: { "startDate": "20201028", "endDate":"20201028", "JSESSIONID":JSESSIONID}
 - returns: The TimeTable with names fr the subjects instead of ids
 
 ## ÖBB
