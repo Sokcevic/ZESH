@@ -8,7 +8,7 @@ import urllib.parse
 
 app = Flask(__name__)
 
-UNTIS_URL = 'https://neilo.webuntis.com/WebUntis/jsonrpc.do?school=Spengergasse'
+UNTIS_URL = 'https://{server}/WebUntis/jsonrpc.do?school={loginName}'
 
 
 @app.route("/")
@@ -25,12 +25,14 @@ def login():
     postData = {}
     postData["id"] = "ID"
     postData["method"] = "authenticate"
-    postData["params"] = postbody.json
+    postData["params"] = postbody.json['data']
     postData["jsonrpc"] = "2.0"
     print(postbody.json)
-    r = requests.post(UNTIS_URL, data = json.dumps(postData)).json()
+    print(postData)
+    print(UNTIS_URL.format(server = postbody.json['server'], loginName = postbody.json['loginName']))
+    r = requests.post(UNTIS_URL.format(server = postbody.json['server'], loginName = postbody.json['loginName']), data = json.dumps(postData)).json()
     if "error" in r:
-        return {}
+        return r['error']
     return json.dumps(r['result'])
 
 @app.route('/table', methods=['POST'])
@@ -90,6 +92,14 @@ def getUserType(p):
     if 'data' not in r:
         return False
     return r['data']['profile']['userRoleId']
+
+@app.route('/search', methods=['POST'])
+def searchSchoolRoute():
+    return searchSchool(postbody)
+
+def searchSchool(p):
+    postData  = {"id":"wu_schulsuche-1635432671032","method":"searchSchool","params":[{"search":p.json['search']}],"jsonrpc":"2.0"}
+    return requests.post('https://mobile.webuntis.com/ms/schoolquery2', json=postData).json()
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------#
 
