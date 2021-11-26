@@ -51,12 +51,12 @@ def getTable(p):
     if uid is False or utyp is False:
         return {'error':'Your JSESSIONID is probably expired'}
     postData["params"] = { "id":uid, "type":utyp}
-    if "startDate" in p.json:
-        postData['params']["startDate"] = p.json['startDate']
-    if "endDate" in p.json:
-        postData['params']['endDate'] = p.json['endDate']
+    if "startDate" in p.json['data']:
+        postData['params']["startDate"] = p.json['data']['startDate']
+    if "endDate" in p.json['data']:
+        postData['params']['endDate'] = p.json['data']['endDate']
     postData["jsonrpc"] = "2.0"
-    return requests.post(UNTIS_URL, data = json.dumps(postData), cookies = {"JSESSIONID": p.json['JSESSIONID']}).json()
+    return requests.post(UNTIS_URL.format(server = postbody.json['server'], loginName = postbody.json['loginName']), data = json.dumps(postData), cookies = {"JSESSIONID": p.json['data']['JSESSIONID']}).json()
 
 @app.route('/subjects', methods=['POST'])
 def getSubjectsRoute():
@@ -70,25 +70,25 @@ def getSubjects(p):
     postData["id"] = "ID"
     postData["method"] = "getSubjects"
     postData["jsonrpc"] = "2.0"
-    return requests.post(UNTIS_URL, data = json.dumps(postData), cookies = {"JSESSIONID": p.json['JSESSIONID']}).json()
+    return requests.post(UNTIS_URL.format(server = postbody.json['server'], loginName = postbody.json['loginName']), data = json.dumps(postData), cookies = {"JSESSIONID": p.json['data']['JSESSIONID']}).json()
 
 @app.route('/userData', methods=['POST'])
 def getStudentInfo():
     return requests.get('https://neilo.webuntis.com/WebUntis/api/rest/view/v1/app/data', 
-    cookies={"JSESSIONID": postbody.json['JSESSIONID']}, headers={'Authorization': getBearerAuth(postbody)}).json()
+    cookies={"JSESSIONID": postbody.json['data']['JSESSIONID']}, headers={'Authorization': getBearerAuth(postbody)}).json()
 
 def getBearerAuth(p):
-    return 'Bearer ' + requests.get('https://neilo.webuntis.com/WebUntis/api/token/new', cookies = {"JSESSIONID": p.json['JSESSIONID']}).text
+    return 'Bearer ' + requests.get('https://neilo.webuntis.com/WebUntis/api/token/new', cookies = {"JSESSIONID": p.json['data']['JSESSIONID']}).text
 
 def getUserID(p):
     r = requests.get('https://neilo.webuntis.com/WebUntis/api/rest/view/v1/app/data', 
-    cookies={"JSESSIONID": p.json['JSESSIONID']}, headers={'Authorization': getBearerAuth(postbody)}).json()
+    cookies={"JSESSIONID": p.json['data']['JSESSIONID']}, headers={'Authorization': getBearerAuth(postbody)}).json()
     if 'user' not in r:
         return False
     return r['user']['person']['id']
 
 def getUserType(p):
-    r = requests.get('https://neilo.webuntis.com/WebUntis/api/profile/general', cookies={"JSESSIONID": p.json['JSESSIONID']}, headers={'accept':'application/json'}).json()
+    r = requests.get('https://neilo.webuntis.com/WebUntis/api/profile/general', cookies={"JSESSIONID": p.json['data']['JSESSIONID']}, headers={'accept':'application/json'}).json()
     if 'data' not in r:
         return False
     return r['data']['profile']['userRoleId']
@@ -99,7 +99,7 @@ def searchSchoolRoute():
 
 def searchSchool(p):
     postData  = {"id":"wu_schulsuche-1635432671032","method":"searchSchool","params":[{"search":p.json['search']}],"jsonrpc":"2.0"}
-    return requests.post('https://mobile.webuntis.com/ms/schoolquery2', json=postData).json()
+    return requests.post('https://mobile.webuntis.com/ms/schoolquery2', json=postData).json()['result']
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -133,7 +133,12 @@ def getLesson():
         return {'error':'You probably don\'t have school that day!' }
 
     erg = defaultdict(list)
-    for t in table['result']: erg[t['date']].append(t['startTime'])
+    for t in table['result']: 
+        print(t)
+        if('code' in t):
+            if(t['code'] == 'cancelled'): 
+                continue  
+        erg[t['date']].append(t['startTime'])
     for k, v in erg.items():
         erg[k] = min(v)
     return erg
